@@ -8,7 +8,7 @@ configurable location, default table expiration and labels.
 
 ```hcl
 module "bigquery" {
-  source = "github.com/cybercapybara/terraform-google-bigquery"
+  source = "github.com/moveeeax/terraform-google-bigquery"
 
   project_id = var.project_id
   dataset_id = "analytics"
