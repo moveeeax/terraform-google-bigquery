@@ -8,7 +8,7 @@ configurable location, default table expiration and labels.
 
 ```hcl
 module "bigquery" {
-  source = "github.com/moveeeax/terraform-google-bigquery"
+  source = "github.com/moveeeax/terraform-google-bigquery?ref=v1.0.0"
 
   project_id = var.project_id
   dataset_id = "analytics"
@@ -32,7 +32,7 @@ the create call fails.
 
 ```hcl
 module "bigquery" {
-  source = "github.com/moveeeax/terraform-google-bigquery"
+  source = "github.com/moveeeax/terraform-google-bigquery?ref=v1.0.0"
 
   project_id   = var.project_id
   dataset_id   = "analytics"
