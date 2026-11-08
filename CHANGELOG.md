@@ -6,6 +6,15 @@ All notable changes to this module are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `iam_members` (role => list of members, default `{}`): additive dataset
+  grants via `google_bigquery_dataset_iam_member`, one resource per role and
+  member. Rejects legacy `OWNER`/`WRITER`/`READER` roles, members without a
+  `<type>:` prefix, `allUsers` and `allAuthenticatedUsers`. The dataset still
+  declares no authoritative `access` block, so existing deployments plan the
+  same.
+
 ### Changed
 
 - CI: bump actions to their current majors, pin tool versions, and restrict the

@@ -89,3 +89,42 @@ variable "labels" {
   type        = map(string)
   default     = {}
 }
+
+variable "iam_members" {
+  description = <<-EOT
+    Additive dataset-level IAM grants, as role => list of members, e.g.
+    { "roles/bigquery.dataViewer" = ["group:analysts@example.com"] }.
+    Each grant becomes one google_bigquery_dataset_iam_member, so existing
+    access on the dataset is preserved. Use full role names: the legacy
+    OWNER / WRITER / READER forms are not accepted by the dataset IAM API.
+    Empty (the default) creates no grants.
+  EOT
+  type        = map(list(string))
+  default     = {}
+
+  validation {
+    condition = alltrue([
+      for role in keys(var.iam_members) :
+      can(regex("^(roles/[A-Za-z0-9_.]+|(projects|organizations)/[^/]+/roles/[A-Za-z0-9_.]+)$", role))
+    ])
+    error_message = "iam_members keys must be full role names (roles/bigquery.dataViewer, projects/<p>/roles/<r> or organizations/<o>/roles/<r>). Legacy OWNER, WRITER and READER are not accepted by the dataset IAM API."
+  }
+
+  validation {
+    condition = alltrue(flatten([
+      for members in values(var.iam_members) : [
+        for m in members : can(regex("^[A-Za-z]+:[^ ]+$", m))
+      ]
+    ]))
+    error_message = "iam_members members must be IAM principals of the form <type>:<id>, e.g. user:jane@example.com, group:analysts@example.com or serviceAccount:etl@my-project.iam.gserviceaccount.com."
+  }
+
+  validation {
+    condition = !anytrue(flatten([
+      for members in values(var.iam_members) : [
+        for m in members : contains(["allUsers", "allAuthenticatedUsers"], m)
+      ]
+    ]))
+    error_message = "iam_members must not grant allUsers or allAuthenticatedUsers: that makes the dataset readable by anyone on the internet."
+  }
+}

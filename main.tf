@@ -21,3 +21,28 @@ resource "google_bigquery_dataset" "this" {
     }
   }
 }
+
+locals {
+  # Flatten role -> members into one entry per grant, keyed by "role member" so
+  # adding or removing one member never re-creates the others.
+  iam_members = {
+    for pair in flatten([
+      for role, members in var.iam_members : [
+        for member in distinct(members) : { role = role, member = member }
+      ]
+    ]) : "${pair.role} ${pair.member}" => pair
+  }
+}
+
+# Additive grants: each resource adds one member to one role and leaves every
+# other entry on the dataset alone, including grants made outside Terraform.
+# The dataset resource above still declares no `access` block, which would be
+# authoritative and fight with these.
+resource "google_bigquery_dataset_iam_member" "this" {
+  for_each = local.iam_members
+
+  project    = google_bigquery_dataset.this.project
+  dataset_id = google_bigquery_dataset.this.dataset_id
+  role       = each.value.role
+  member     = each.value.member
+}

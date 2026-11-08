@@ -41,6 +41,42 @@ module "bigquery" {
 }
 ```
 
+### Dataset access
+
+`iam_members` grants dataset-level roles additively, one
+`google_bigquery_dataset_iam_member` per role and member. Grants made outside
+Terraform stay in place.
+
+```hcl
+module "bigquery" {
+  source = "github.com/moveeeax/terraform-google-bigquery?ref=v1.0.0"
+
+  project_id = var.project_id
+  dataset_id = "analytics"
+
+  iam_members = {
+    "roles/bigquery.dataViewer" = ["group:analysts@example.com"]
+    "roles/bigquery.dataEditor" = ["serviceAccount:etl@my-project.iam.gserviceaccount.com"]
+  }
+}
+```
+
+Prefer groups and dedicated service accounts over individual users, and
+`roles/bigquery.dataViewer` unless the principal must write. Caveats from the
+[provider docs](https://registry.terraform.io/providers/hashicorp/google/latest/docs/resources/bigquery_dataset_iam):
+
+- Do not combine `iam_members` with `google_bigquery_dataset_access` resources,
+  an `access` block on the same dataset, or a `google_bigquery_dataset_iam_policy`;
+  they fight over the policy. A `google_bigquery_dataset_iam_binding` is fine
+  only for roles not listed in `iam_members`.
+- Dataset IAM resources remove authorized view entries from the dataset. If the
+  dataset authorizes views, manage access with `google_bigquery_dataset_access`
+  instead and leave `iam_members` empty.
+- Legacy `OWNER` / `WRITER` / `READER` roles are not accepted; use
+  `roles/bigquery.dataOwner` / `dataEditor` / `dataViewer`.
+
+The module rejects `allUsers` and `allAuthenticatedUsers`.
+
 ## Behaviour worth knowing
 
 - **`delete_contents_on_destroy` defaults to `false`.** With the default,
@@ -52,13 +88,13 @@ module "bigquery" {
   expires live tables far earlier than intended, so the module rejects anything
   below BigQuery's one-hour floor. It applies to tables created *after* the
   value is set; existing tables keep the expiry they were created with.
-- **This module does not manage dataset access.** It deliberately sets no
-  `access` block, because that block is authoritative: declaring it would make
-  Terraform delete every grant added outside this module, including the default
-  owner entries BigQuery creates with the dataset. Grant access alongside the
-  module with the additive `google_bigquery_dataset_iam_member` /
-  `google_bigquery_dataset_iam_binding` resources. Never grant `allUsers` or
-  `allAuthenticatedUsers` — that makes the data public to the internet.
+- **The dataset never gets an authoritative `access` block.** Declaring it
+  would make Terraform delete every grant added outside this module, including
+  the default owner entries BigQuery creates with the dataset. Access is granted
+  additively through `iam_members` (see [Dataset access](#dataset-access)) or
+  with your own `google_bigquery_dataset_iam_member` resources. Never grant
+  `allUsers` or `allAuthenticatedUsers`; that makes the data public to the
+  internet.
 
 ## Requirements
 
@@ -80,6 +116,7 @@ module "bigquery" {
 | `delete_contents_on_destroy`  | Allow `terraform destroy` to drop a dataset that still has tables. | `bool` | `false`          |    no    |
 | `kms_key_name`                | Cloud KMS key for CMEK encryption. Null uses Google-managed keys. | `string` | `null`             |    no    |
 | `labels`                      | Labels applied to the dataset.                           | `map(string)` | `{}`                     |    no    |
+| `iam_members`                 | Additive dataset IAM grants, role => list of members.    | `map(list(string))` | `{}`               |    no    |
 
 ## Outputs
 
